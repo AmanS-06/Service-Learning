@@ -8,3 +8,5 @@ npm-debug.log*
 data/*.db
 data/*.db-journal
 .env
+
+.idea/

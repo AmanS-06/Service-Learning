@@ -1,0 +1,4 @@
+appId: com.fieldlog.lite
+productName: FieldLog Lite
+directories:
+  output: dist
