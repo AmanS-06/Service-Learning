@@ -3,13 +3,13 @@ import { join } from 'path'
 import { registerBeneficiaryHandlers } from './ipc/beneficiaryHandlers.js'
 import { registerStallSalesHandlers } from './ipc/stallSalesHandlers.js'
 import { registerDashboardHandlers } from './ipc/dashboardHandlers.js'
-// import { registerProductionHandlers } from './ipc/productionHandlers.js'
+import { registerProductionHandlers } from './ipc/productionHandlers.js'
 
 function registerAllHandlers() {
   registerBeneficiaryHandlers()
   registerStallSalesHandlers()
   registerDashboardHandlers()
-  // registerProductionHandlers()
+  registerProductionHandlers()
 }
 
 function createWindow() {
