@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import Icon from './Icon'
 
 // Search box with a short delay, so the list only reloads once typing pauses.
 // onSearch is called with the trimmed text (or '' when cleared).
-// Esc or the clear button empties the box.
+// Esc or the Clear button empties the box.
 export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
   const [value, setValue] = useState('')
   const inputRef = useRef(null)
@@ -41,7 +40,6 @@ export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
 
   return (
     <div className="search">
-      <Icon name="search" size={15} className="search-icon" />
       <input
         ref={inputRef}
         type="text"
@@ -54,14 +52,8 @@ export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
         spellCheck={false}
       />
       {value && (
-        <button
-          type="button"
-          className="btn btn-icon search-clear"
-          onClick={clear}
-          aria-label="Clear search"
-          title="Clear"
-        >
-          <Icon name="x" size={14} />
+        <button type="button" className="btn btn-ghost btn-sm search-clear" onClick={clear}>
+          Clear
         </button>
       )}
     </div>

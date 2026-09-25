@@ -1,5 +1,3 @@
-import Icon from './Icon'
-
 // Shared data table.
 //
 // columns: [{ key, label, render?(row), numeric?, width? }]
@@ -7,8 +5,8 @@ import Icon from './Icon'
 //   - numeric right-aligns the column (quantities, amounts)
 // rows:         array of records (each should have an id)
 // onRowClick:   optional, called with the row when a row is clicked
-// onEdit:       optional, shows an edit button at the end of each row
-// onDelete:     optional, shows a delete button at the end of each row
+// onEdit:       optional, shows an Edit button at the end of each row
+// onDelete:     optional, shows a Delete button at the end of each row
 // emptyMessage: text shown when there are no rows
 // footer:       optional content for the strip under the table (counts, totals)
 export default function Table({
@@ -94,23 +92,19 @@ export default function Table({
                     {onEdit && (
                       <button
                         type="button"
-                        className="btn btn-icon"
+                        className="btn btn-ghost btn-sm"
                         onClick={handleAction(onEdit, row)}
-                        aria-label="Edit"
-                        title="Edit"
                       >
-                        <Icon name="edit" size={15} />
+                        Edit
                       </button>
                     )}
                     {onDelete && (
                       <button
                         type="button"
-                        className="btn btn-icon is-danger"
+                        className="btn btn-ghost-danger btn-sm"
                         onClick={handleAction(onDelete, row)}
-                        aria-label="Delete"
-                        title="Delete"
                       >
-                        <Icon name="trash" size={15} />
+                        Delete
                       </button>
                     )}
                   </td>
