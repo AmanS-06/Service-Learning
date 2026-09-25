@@ -691,6 +691,13 @@ select.input {
   animation: modal-in 140ms ease-out;
 }
 
+/* The dialog itself takes focus on open; don't draw a focus ring around the whole box. */
+.modal:focus,
+.modal:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-modal);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
