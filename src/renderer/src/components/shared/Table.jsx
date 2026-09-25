@@ -9,6 +9,7 @@
 // onDelete:     optional, shows a Delete button at the end of each row
 // emptyMessage: text shown when there are no rows
 // footer:       optional content for the strip under the table (counts, totals)
+// bare:         no outer border, for tables placed inside a dashboard panel
 export default function Table({
   columns,
   rows,
@@ -16,7 +17,8 @@ export default function Table({
   onEdit,
   onDelete,
   emptyMessage = 'No records found',
-  footer
+  footer,
+  bare = false
 }) {
   const hasActions = Boolean(onEdit || onDelete)
   const colCount = columns.length + (hasActions ? 1 : 0)
@@ -35,7 +37,7 @@ export default function Table({
   }
 
   return (
-    <div className="table-card">
+    <div className={`table-card${bare ? ' is-bare' : ''}`}>
       <div className="table-scroll">
         <table className="table">
           <thead>

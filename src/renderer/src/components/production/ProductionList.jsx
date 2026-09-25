@@ -1,101 +1,155 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Table from '../shared/Table'
 import SearchBar from '../shared/SearchBar'
+import Tabs from '../shared/Tabs'
+import ConfirmDialog from '../shared/ConfirmDialog'
 import ProductionEntryForm from './ProductionEntryForm'
-import ProductionDetail from './ProductionDetail'
+import ProductionDetail, { TypeBadge } from './ProductionDetail'
+import useRecordList from '../../hooks/useRecordList'
+import useShortcut from '../../hooks/useShortcut'
+import { useApp } from '../../context/AppContext'
+import { formatDate, formatNumber } from '../../utils/format'
+import { downloadCsv } from '../../utils/csv'
 
 const COLUMNS = [
-  { key: 'entry_type', label: 'Type',
-    render: (r) => (
-      <span style={{
-        fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
-        background: r.entry_type === 'MANUFACTURING' ? '#EAF3EB' : '#FDF3E7',
-        color: r.entry_type === 'MANUFACTURING' ? '#2D6A35' : '#B5720B'
-      }}>
-        {r.entry_type === 'MANUFACTURING' ? 'Manufacturing' : 'Sell'}
-      </span>
-    ) },
-  { key: 'item_name', label: 'Item' },
+  { key: 'entry_type', label: 'Type', render: (r) => <TypeBadge type={r.entry_type} /> },
+  { key: 'item_name', label: 'Item', render: (r) => <span className="strong">{r.item_name}</span> },
   { key: 'category', label: 'Category' },
-  { key: 'quantity', label: 'Qty' },
+  { key: 'quantity', label: 'Quantity', numeric: true, render: (r) => formatNumber(r.quantity) },
   { key: 'unit', label: 'Unit' },
-  { key: 'sold_to', label: 'Sold To' }
+  { key: 'sold_to', label: 'Sold to' },
+  { key: 'created_at', label: 'Recorded on', render: (r) => formatDate(r.created_at) }
+]
+
+const TYPE_FILTERS = [
+  { value: 'ALL', label: 'All' },
+  { value: 'MANUFACTURING', label: 'Manufacturing' },
+  { value: 'SELL', label: 'Sell' }
 ]
 
 export default function ProductionList() {
-  const [rows, setRows] = useState([])
-  const [search, setSearch] = useState('')
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [viewing, setViewing] = useState(null)
+  const { rows, loading, error, query, setQuery, reload } = useRecordList('production')
+  const { toast, markChanged } = useApp()
 
-  async function load(q) {
-    const data = q ? await window.api.production.search(q) : await window.api.production.list()
-    setRows(data)
+  const [typeFilter, setTypeFilter] = useState('ALL')
+  const [formEntry, setFormEntry] = useState(null) // null = closed, {} = new, row = edit
+  const [viewing, setViewing] = useState(null)
+  const [toDelete, setToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  useShortcut('n', () => setFormEntry({}))
+
+  function openEdit(row) {
+    setViewing(null)
+    setFormEntry(row)
   }
 
-  useEffect(() => { load(search) }, [search])
+  function askDelete(row) {
+    setDeleteError('')
+    setToDelete(row)
+  }
 
-  function handleEdit(row) {
-    setViewing(null)
-    setEditing(row)
-    setShowForm(true)
+  function handleSaved() {
+    const wasEdit = Boolean(formEntry?.id)
+    setFormEntry(null)
+    // Show everything again so a new entry is never hidden by the current tab.
+    if (!wasEdit) setTypeFilter('ALL')
+    reload()
+    markChanged()
+    toast(wasEdit ? 'Changes saved' : 'Entry added')
+  }
+
+  async function confirmDelete() {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await window.api.production.delete(toDelete.id)
+      setToDelete(null)
+      setViewing(null)
+      reload()
+      markChanged()
+      toast('Entry deleted')
+    } catch (err) {
+      console.error(err)
+      setDeleteError('Could not delete this entry. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleExport() {
-    const csv = await window.api.production.export()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `production_log_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
+    try {
+      const csv = await window.api.production.export()
+      downloadCsv(csv, 'production_log')
+    } catch (err) {
+      console.error(err)
+      toast('Could not export the production log', 'error')
+    }
   }
 
-  return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+  const visible = typeFilter === 'ALL' ? rows : rows.filter((r) => r.entry_type === typeFilter)
+  const tabOptions = TYPE_FILTERS.map((f) => ({
+    ...f,
+    count: f.value === 'ALL' ? rows.length : rows.filter((r) => r.entry_type === f.value).length
+  }))
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Production Log</h2>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={handleExport} style={{
-            padding: '9px 18px', border: '1.5px solid #D6E0D7',
-            borderRadius: 8, background: 'white',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600
-          }}>
+  const count = `${visible.length} ${visible.length === 1 ? 'entry' : 'entries'}`
+  const filtered = Boolean(query) || typeFilter !== 'ALL'
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Production log</h1>
+          <p className="page-subtitle">Manufacturing and wholesale sell entries</p>
+        </div>
+        <div className="page-actions">
+          <button type="button" className="btn btn-secondary" onClick={handleExport}>
             Export CSV
           </button>
-          <button onClick={() => { setEditing(null); setShowForm(true) }} style={{
-            padding: '9px 18px', background: '#2D6A35', color: 'white',
-            border: 'none', borderRadius: 8,
-            cursor: 'pointer', fontSize: 13, fontWeight: 600
-          }}>
-            + Add entry
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setFormEntry({})}
+            title="Shortcut: Ctrl+N"
+            aria-keyshortcuts="Control+N"
+          >
+            Add entry
           </button>
         </div>
       </div>
 
-      <SearchBar
-        placeholder="Search by item, category, sold to…"
-        onSearch={setSearch}
-      />
-
-      <div style={{
-        background: 'white', borderRadius: 10,
-        border: '1px solid #D6E0D7', overflow: 'hidden'
-      }}>
-        <Table columns={COLUMNS} rows={rows} onRowClick={setViewing} />
-        <div style={{
-          padding: '10px 16px', borderTop: '1px solid #D6E0D7',
-          fontSize: 12, color: '#8A9E8D'
-        }}>
-          {rows.length} records
-        </div>
+      <div className="toolbar">
+        <SearchBar placeholder="Search by item, category, type or buyer" onSearch={setQuery} />
+        <Tabs label="Entry type" options={tabOptions} value={typeFilter} onChange={setTypeFilter} />
       </div>
 
-      {showForm && (
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      {loading ? (
+        <div className="state">Loading entries...</div>
+      ) : (
+        <Table
+          columns={COLUMNS}
+          rows={visible}
+          onRowClick={setViewing}
+          onEdit={openEdit}
+          onDelete={askDelete}
+          emptyMessage={
+            filtered
+              ? 'No entries match.'
+              : 'No entries yet. Use Add entry to record manufacturing or a sale.'
+          }
+          footer={<span>{filtered ? `${count} shown` : count}</span>}
+        />
+      )}
+
+      {formEntry && (
         <ProductionEntryForm
-          initial={editing}
-          onSave={() => { setShowForm(false); setEditing(null); load(search) }}
-          onClose={() => { setShowForm(false); setEditing(null) }}
+          initial={formEntry.id ? formEntry : null}
+          onSave={handleSaved}
+          onClose={() => setFormEntry(null)}
         />
       )}
 
@@ -103,9 +157,24 @@ export default function ProductionList() {
         <ProductionDetail
           entry={viewing}
           onClose={() => setViewing(null)}
-          onEdit={handleEdit}
+          onEdit={openEdit}
+          onDelete={askDelete}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(toDelete)}
+        title="Delete entry"
+        message={
+          toDelete
+            ? `Delete this ${toDelete.entry_type === 'SELL' ? 'sell' : 'manufacturing'} entry for ${toDelete.item_name}? Stock on the dashboard will be recalculated. This cannot be undone.`
+            : ''
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+        busy={deleting}
+        error={deleteError}
+      />
     </div>
   )
 }

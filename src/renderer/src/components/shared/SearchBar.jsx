@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import useShortcut from '../../hooks/useShortcut'
 
 // Search box with a short delay, so the list only reloads once typing pauses.
 // onSearch is called with the trimmed text (or '' when cleared).
-// Esc or the Clear button empties the box.
+// Ctrl+F jumps to the box; Esc or the Clear button empties it.
 export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
   const [value, setValue] = useState('')
   const inputRef = useRef(null)
@@ -25,6 +26,11 @@ export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
     }, delay)
     return () => clearTimeout(handle)
   }, [value, delay])
+
+  useShortcut('f', () => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  })
 
   const clear = () => {
     setValue('')
@@ -49,12 +55,17 @@ export default function SearchBar({ placeholder, onSearch, delay = 300 }) {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         aria-label={placeholder || 'Search'}
+        aria-keyshortcuts="Control+F"
         spellCheck={false}
       />
-      {value && (
+      {value ? (
         <button type="button" className="btn btn-ghost btn-sm search-clear" onClick={clear}>
           Clear
         </button>
+      ) : (
+        <span className="search-hint" aria-hidden="true">
+          Ctrl+F
+        </span>
       )}
     </div>
   )

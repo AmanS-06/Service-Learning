@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'path'
 import { registerBeneficiaryHandlers } from './ipc/beneficiaryHandlers.js'
 import { registerStallSalesHandlers } from './ipc/stallSalesHandlers.js'
@@ -12,10 +12,25 @@ function registerAllHandlers() {
   registerProductionHandlers()
 }
 
+// Electron's default menu minus Help (which only links to Electron's own website).
+function setAppMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      { role: 'fileMenu' },
+      { role: 'editMenu' },
+      { role: 'viewMenu' },
+      { role: 'windowMenu' }
+    ])
+  )
+}
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
+    minWidth: 900,
+    minHeight: 600,
+    backgroundColor: '#ffffff',
     show: false,
     autoHideMenuBar: false,
     webPreferences: {
@@ -44,6 +59,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerAllHandlers()
+  setAppMenu()
   createWindow()
 
   app.on('activate', function () {

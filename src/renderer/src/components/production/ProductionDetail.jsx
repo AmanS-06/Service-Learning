@@ -1,39 +1,43 @@
 import Modal from '../shared/Modal'
+import DetailList from '../shared/DetailList'
+import { formatDateTime, formatNumber } from '../../utils/format'
 
-export default function ProductionDetail({ entry, onClose, onEdit }) {
+// Green for manufacturing, amber for sell. Also used in the list's Type column.
+export function TypeBadge({ type }) {
+  return type === 'SELL' ? (
+    <span className="badge badge-warning">Sell</span>
+  ) : (
+    <span className="badge badge-success">Manufacturing</span>
+  )
+}
+
+export default function ProductionDetail({ entry, onClose, onEdit, onDelete }) {
   if (!entry) return null
 
-  const rows = [
-    ['Type', entry.entry_type === 'MANUFACTURING' ? 'Manufacturing' : 'Sell'],
+  const items = [
+    ['Type', <TypeBadge key="type" type={entry.entry_type} />],
     ['Item', entry.item_name],
     ['Category', entry.category],
-    ['Quantity', entry.quantity],
+    ['Quantity', formatNumber(entry.quantity)],
     ['Unit', entry.unit],
-    ['Sold to', entry.sold_to],
-    ['Recorded', entry.created_at]
+    ...(entry.entry_type === 'SELL' ? [['Sold to', entry.sold_to]] : []),
+    ['Recorded on', formatDateTime(entry.created_at)]
   ]
 
   const footer = (
-    <button onClick={() => onEdit(entry)} style={{
-      padding: '10px 20px', background: '#2D6A35',
-      color: 'white', border: 'none', borderRadius: 8,
-      cursor: 'pointer', fontSize: 13, fontWeight: 600
-    }}>
-      Edit entry
-    </button>
+    <>
+      <button type="button" className="btn btn-ghost-danger spacer" onClick={() => onDelete(entry)}>
+        Delete
+      </button>
+      <button type="button" className="btn btn-primary" onClick={() => onEdit(entry)}>
+        Edit entry
+      </button>
+    </>
   )
 
   return (
-    <Modal isOpen onClose={onClose} title="Entry detail" maxWidth={480} footer={footer}>
-      {rows.map(([label, value]) => (
-        <div key={label} style={{
-          display: 'flex', justifyContent: 'space-between',
-          padding: '9px 0', borderBottom: '1px solid #D6E0D7', fontSize: 13
-        }}>
-          <span style={{ color: '#8A9E8D', fontWeight: 600 }}>{label}</span>
-          <span style={{ fontWeight: 500 }}>{value || '—'}</span>
-        </div>
-      ))}
+    <Modal isOpen onClose={onClose} title="Entry details" maxWidth={500} footer={footer}>
+      <DetailList items={items} />
     </Modal>
   )
 }

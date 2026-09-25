@@ -1,115 +1,207 @@
-import { useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import Modal from '../shared/Modal'
+import FormInput from '../shared/FormInput'
+import {
+  cleanNumber,
+  cleanText,
+  formatCurrency,
+  isValidPhone,
+  todayISO,
+  uniqueValues
+} from '../../utils/format'
+
+const EMPTY = {
+  date: '',
+  product_name: '',
+  customer_name: '',
+  rate: '',
+  quantity: '',
+  contact_no: '',
+  stall_name: '',
+  location: ''
+}
 
 export default function StallSaleForm({ initial, onSave, onClose }) {
-  const [form, setForm] = useState(initial || {})
+  const isEdit = Boolean(initial?.id)
+  const formId = useId()
 
-  const set = (k, v) => setForm(f => {
-    const next = { ...f, [k]: v }
-    next.amount = (Number(next.rate) || 0) * (Number(next.quantity) || 0)
-    return next
-  })
+  const [form, setForm] = useState(() =>
+    initial ? { ...EMPTY, ...initial } : { ...EMPTY, date: todayISO() }
+  )
+  const [errors, setErrors] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [suggestions, setSuggestions] = useState({})
 
-  async function submit() {
-    if (!form.product_name || !form.quantity) {
-      alert('Product name and quantity are required')
-      return
+  // Offer earlier products, stalls and locations while typing.
+  useEffect(() => {
+    let cancelled = false
+    window.api.stallSales
+      .list()
+      .then((rows) => {
+        if (cancelled) return
+        setSuggestions({
+          product_name: uniqueValues(rows, 'product_name'),
+          stall_name: uniqueValues(rows, 'stall_name'),
+          location: uniqueValues(rows, 'location')
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
     }
-    if (initial?.id) await window.api.stallSales.update(initial.id, form)
-    else             await window.api.stallSales.create(form)
-    onSave()
+  }, [])
+
+  const set = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }))
+    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
-  const field = (label, key, type = 'text', readOnly = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: '#4A5E4D' }}>{label}</label>
-      <input
-        type={type}
-        value={form[key] || ''}
-        onChange={e => !readOnly && set(key, e.target.value)}
-        readOnly={readOnly}
-        style={{
-          padding: '9px 12px', border: '1.5px solid #D6E0D7',
-          borderRadius: 8, fontSize: 13, outline: 'none',
-          background: readOnly ? '#F7FAF7' : '#F2F4F0',
-          fontWeight: readOnly ? 700 : 400,
-          color: readOnly ? '#2D6A35' : '#1C2B1E'
-        }}
-      />
-    </div>
+  // Same calculation as the handler: amount = rate x quantity.
+  const amount = (Number(form.rate) || 0) * (Number(form.quantity) || 0)
+
+  function validate() {
+    const found = {}
+    if (!cleanText(form.product_name)) found.product_name = 'Enter the product name'
+
+    const qty = Number(form.quantity)
+    if (String(form.quantity ?? '').trim() === '') found.quantity = 'Enter the quantity'
+    else if (!Number.isFinite(qty) || qty <= 0) found.quantity = 'Quantity must be more than 0'
+
+    if (String(form.rate ?? '').trim() !== '') {
+      const rate = Number(form.rate)
+      if (!Number.isFinite(rate) || rate < 0) found.rate = 'Rate cannot be negative'
+    }
+
+    if (cleanText(form.contact_no) && !isValidPhone(form.contact_no)) {
+      found.contact_no = 'Enter a valid phone number'
+    }
+    return found
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const found = validate()
+    setErrors(found)
+    if (Object.keys(found).length > 0) return
+
+    // The handler uses named SQL parameters, so every field must be present (null when empty).
+    const payload = {
+      date: cleanText(form.date),
+      product_name: cleanText(form.product_name),
+      customer_name: cleanText(form.customer_name),
+      rate: cleanNumber(form.rate),
+      quantity: Number(form.quantity),
+      contact_no: cleanText(form.contact_no),
+      stall_name: cleanText(form.stall_name),
+      location: cleanText(form.location)
+    }
+
+    setSaving(true)
+    setSaveError('')
+    try {
+      if (isEdit) await window.api.stallSales.update(initial.id, payload)
+      else await window.api.stallSales.create(payload)
+      onSave()
+    } catch (err) {
+      console.error(err)
+      setSaveError('Could not save this sale. Please try again.')
+      setSaving(false)
+    }
+  }
+
+  const footer = (
+    <>
+      <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
+        Cancel
+      </button>
+      <button type="submit" form={formId} className="btn btn-primary" disabled={saving}>
+        {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Save sale'}
+      </button>
+    </>
   )
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(28,43,30,0.4)',
-      display: 'flex', alignItems: 'center',
-      justifyContent: 'center', zIndex: 100, padding: 20
-    }}>
-      <div style={{
-        background: 'white', borderRadius: 16,
-        width: '100%', maxWidth: 620,
-        maxHeight: '90vh', overflow: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
-      }}>
-        <div style={{
-          padding: '20px 28px 16px',
-          borderBottom: '1px solid #D6E0D7',
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', position: 'sticky',
-          top: 0, background: 'white'
-        }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700 }}>
-            {initial ? 'Edit sale' : 'Add stall sale'}
-          </h2>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none',
-            fontSize: 20, cursor: 'pointer', color: '#8A9E8D'
-          }}>✕</button>
-        </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={isEdit ? 'Edit sale' : 'Add stall sale'}
+      footer={footer}
+      maxWidth={600}
+      closeOnBackdrop={false}
+    >
+      <form id={formId} onSubmit={handleSubmit} noValidate>
+        {saveError && <div className="alert alert-danger">{saveError}</div>}
 
-        <div style={{ padding: 28 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14 }}>
-            {field('Date',           'date',          'date')}
-            {field('Product name *', 'product_name')}
-            {field('Customer name',  'customer_name')}
-            {field('Rate (₹)',       'rate',          'number')}
-            {field('Quantity *',     'quantity',      'number')}
-            {field('Amount (₹)',     'amount',        'number', true)}
-            {field('Contact no.',    'contact_no')}
-            {field('Stall name',     'stall_name')}
-            <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#4A5E4D' }}>Location</label>
-              <input
-                value={form.location || ''}
-                onChange={e => set('location', e.target.value)}
-                style={{
-                  padding: '9px 12px', border: '1.5px solid #D6E0D7',
-                  borderRadius: 8, fontSize: 13, outline: 'none', background: '#F2F4F0'
-                }}
-              />
-            </div>
-          </div>
+        <div className="form-grid">
+          <FormInput
+            label="Date"
+            type="date"
+            value={form.date}
+            onChange={(v) => set('date', v)}
+          />
+          <FormInput
+            label="Product name"
+            required
+            autoFocus
+            value={form.product_name}
+            onChange={(v) => set('product_name', v)}
+            error={errors.product_name}
+            suggestions={suggestions.product_name}
+          />
+          <FormInput
+            label="Rate (₹)"
+            type="number"
+            min="0"
+            step="any"
+            value={form.rate}
+            onChange={(v) => set('rate', v)}
+            error={errors.rate}
+          />
+          <FormInput
+            label="Quantity"
+            required
+            type="number"
+            min="0"
+            step="any"
+            value={form.quantity}
+            onChange={(v) => set('quantity', v)}
+            error={errors.quantity}
+          />
+          <FormInput
+            label="Amount"
+            full
+            readOnly
+            tabIndex={-1}
+            value={formatCurrency(amount)}
+            hint="Calculated as rate × quantity"
+          />
+          <FormInput
+            label="Customer name"
+            value={form.customer_name}
+            onChange={(v) => set('customer_name', v)}
+          />
+          <FormInput
+            label="Contact no."
+            type="tel"
+            value={form.contact_no}
+            onChange={(v) => set('contact_no', v)}
+            error={errors.contact_no}
+          />
+          <FormInput
+            label="Stall name"
+            value={form.stall_name}
+            onChange={(v) => set('stall_name', v)}
+            suggestions={suggestions.stall_name}
+          />
+          <FormInput
+            label="Location"
+            value={form.location}
+            onChange={(v) => set('location', v)}
+            suggestions={suggestions.location}
+          />
         </div>
-
-        <div style={{
-          padding: '14px 28px 22px',
-          borderTop: '1px solid #D6E0D7',
-          display: 'flex', justifyContent: 'flex-end', gap: 10
-        }}>
-          <button onClick={onClose} style={{
-            padding: '10px 20px', border: '1.5px solid #D6E0D7',
-            borderRadius: 8, background: 'white',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600
-          }}>Cancel</button>
-          <button onClick={submit} style={{
-            padding: '10px 20px', background: '#2D6A35',
-            color: 'white', border: 'none', borderRadius: 8,
-            cursor: 'pointer', fontSize: 13, fontWeight: 600
-          }}>
-            {initial ? 'Save changes' : 'Save sale'}
-          </button>
-        </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }
