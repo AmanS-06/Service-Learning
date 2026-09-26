@@ -12,6 +12,7 @@ const openStack = []
 // footer:          buttons shown along the bottom (Cancel / Save etc.)
 // maxWidth:        width limit in px
 // closeOnBackdrop: set to false on forms so a stray click outside doesn't lose typed data
+// closeOnEscape:   set to false while a form has unsaved typing, so Esc can't throw it away
 export default function Modal({
   isOpen,
   onClose,
@@ -19,15 +20,18 @@ export default function Modal({
   children,
   footer,
   maxWidth = 620,
-  closeOnBackdrop = true
+  closeOnBackdrop = true,
+  closeOnEscape = true
 }) {
   const id = useId()
   const titleId = `${id}-title`
   const dialogRef = useRef(null)
 
-  // Keep the latest onClose without re-running the effect on every render.
+  // Keep the latest onClose / closeOnEscape without re-running the effect on every render.
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const closeOnEscapeRef = useRef(closeOnEscape)
+  closeOnEscapeRef.current = closeOnEscape
 
   // Only close on a backdrop click that also started on the backdrop,
   // so dragging to select text inside the form and releasing outside doesn't close it.
@@ -47,7 +51,7 @@ export default function Modal({
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && openStack[openStack.length - 1] === id) {
         e.stopPropagation()
-        onCloseRef.current()
+        if (closeOnEscapeRef.current) onCloseRef.current()
       }
     }
     document.addEventListener('keydown', handleKeyDown)

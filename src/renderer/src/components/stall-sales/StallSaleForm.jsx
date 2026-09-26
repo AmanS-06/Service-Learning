@@ -28,6 +28,7 @@ export default function StallSaleForm({ initial, onSave, onClose }) {
   const [form, setForm] = useState(() =>
     initial ? { ...EMPTY, ...initial } : { ...EMPTY, date: todayISO() }
   )
+  const [dirty, setDirty] = useState(false) // true once anything is typed or changed
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -54,6 +55,7 @@ export default function StallSaleForm({ initial, onSave, onClose }) {
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }))
+    setDirty(true)
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
@@ -129,6 +131,7 @@ export default function StallSaleForm({ initial, onSave, onClose }) {
       footer={footer}
       maxWidth={600}
       closeOnBackdrop={false}
+      closeOnEscape={!dirty}
     >
       <form id={formId} onSubmit={handleSubmit} noValidate>
         {saveError && <div className="alert alert-danger">{saveError}</div>}

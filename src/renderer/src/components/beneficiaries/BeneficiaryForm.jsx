@@ -11,12 +11,14 @@ export default function BeneficiaryForm({ initial, onSave, onClose }) {
   const formId = useId()
 
   const [form, setForm] = useState(() => ({ ...EMPTY, ...(initial || {}) }))
+  const [dirty, setDirty] = useState(false) // true once anything is typed or changed
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }))
+    setDirty(true)
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
@@ -95,6 +97,7 @@ export default function BeneficiaryForm({ initial, onSave, onClose }) {
       footer={footer}
       maxWidth={760}
       closeOnBackdrop={false}
+      closeOnEscape={!dirty}
     >
       <form id={formId} onSubmit={handleSubmit} noValidate>
         {saveError && <div className="alert alert-danger">{saveError}</div>}
